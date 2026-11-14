@@ -1,0 +1,10 @@
+const { DatabaseSync } = require('node:sqlite');
+const path = require('path');
+const db = new DatabaseSync(path.join(__dirname, '..', 'data', 'maqraat_huda.db'));
+db.exec("DELETE FROM student_applications;");
+db.exec("DELETE FROM sessions;");
+db.exec("DELETE FROM testimonials;");
+console.log('Cleaned database:');
+console.log('Sessions count:', db.prepare('SELECT COUNT(*) as c FROM sessions').get());
+console.log('Testimonials count:', db.prepare('SELECT COUNT(*) as c FROM testimonials').get());
+console.log('Student apps count:', db.prepare('SELECT COUNT(*) as c FROM student_applications').get());

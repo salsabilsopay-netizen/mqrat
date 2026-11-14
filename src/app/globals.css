@@ -1,0 +1,333 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-ibm-plex-sans-arabic: 'IBM Plex Sans Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-noto-naskh-arabic: 'Noto Naskh Arabic', serif;
+  --color-primary: #153D32;
+  --color-ivory: #F7F5EF;
+  --color-gold: #B69A65;
+  --color-sage: #E5ECE6;
+  --color-charcoal: #28342F;
+  --ease-cinematic: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  direction: rtl;
+  scroll-behavior: smooth;
+  font-family: var(--font-ibm-plex-sans-arabic);
+  background-color: #F7F5EF;
+  color: #28342F;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: #F7F5EF;
+  color: #28342F;
+  overflow-x: hidden;
+  text-rendering: optimizeLegibility;
+}
+
+/* Custom Quran Calligraphic Style */
+.font-quran {
+  font-family: var(--font-noto-naskh-arabic), serif;
+}
+
+/* Institutional Subtle Patterns */
+.bg-islamic-pattern {
+  background-image: radial-gradient(rgba(182, 154, 101, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Subtle Golden Border Accent */
+.border-gold-subtle {
+  border-color: rgba(182, 154, 101, 0.35);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #F7F5EF;
+}
+::-webkit-scrollbar-thumb {
+  background: #c3dacd;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #153D32;
+}
+
+/* ========================================================================= */
+/* PREMIUM ISLAMIC CINEMATIC MOTION SYSTEM (GPU Transform & Opacity Only)    */
+/* ========================================================================= */
+
+@keyframes heroReveal {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 20px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes heroBgRevealZoom {
+  0% {
+    opacity: 0;
+    transform: scale(1.07);
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.0);
+  }
+}
+
+@keyframes goldLineExpand {
+  from {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes ornamentFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ornamentAmbientBreath {
+  0%, 100% {
+    opacity: 0.45;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: translate3d(0, -4px, 0) scale(1.015);
+  }
+}
+
+@keyframes scrollCueFloat {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.72;
+  }
+  50% {
+    transform: translate3d(0, 6px, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes modalPanelIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes backdropFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Sequenced Cinematic Hero (~1.75s total, never blocks interaction) */
+.animate-image-reveal {
+  animation: heroBgRevealZoom 2.3s var(--ease-cinematic) 0s both;
+  will-change: transform, opacity;
+}
+
+.animate-hero-badge {
+  animation: heroReveal 0.8s var(--ease-cinematic) 0.14s both;
+}
+
+.animate-hero-title {
+  animation: heroReveal 0.85s var(--ease-cinematic) 0.3s both;
+}
+
+.animate-hero-sub {
+  animation: heroReveal 0.85s var(--ease-cinematic) 0.48s both;
+}
+
+.animate-hero-gold-line {
+  transform-origin: center;
+  animation: goldLineExpand 0.8s var(--ease-cinematic) 0.65s both;
+}
+
+.animate-hero-desc {
+  animation: heroReveal 0.85s var(--ease-cinematic) 0.78s both;
+}
+
+.animate-hero-cta {
+  animation: heroReveal 0.85s var(--ease-cinematic) 0.96s both;
+}
+
+.animate-hero-trust {
+  animation: heroReveal 0.85s var(--ease-cinematic) 1.12s both;
+}
+
+.animate-hero-trust-1 {
+  animation: heroReveal 0.75s var(--ease-cinematic) 1.12s both;
+}
+
+.animate-hero-trust-2 {
+  animation: heroReveal 0.75s var(--ease-cinematic) 1.24s both;
+}
+
+.animate-hero-trust-3 {
+  animation: heroReveal 0.75s var(--ease-cinematic) 1.36s both;
+}
+
+.animate-hero-scroll {
+  animation: heroReveal 0.7s var(--ease-cinematic) 1.48s both;
+}
+
+.animate-scroll-cue {
+  animation: scrollCueFloat 2.4s ease-in-out infinite;
+}
+
+.animate-ornament-ambient {
+  animation: ornamentAmbientBreath 10s ease-in-out infinite;
+}
+
+.animate-modal-panel {
+  animation: modalPanelIn 0.28s var(--ease-cinematic) both;
+}
+
+.animate-backdrop-fade {
+  animation: backdropFadeIn 0.24s ease-out both;
+}
+
+/* Progressive Enhancement Scroll Reveal (SSR & no-JS remain 100% visible) */
+.reveal-item {
+  transition:
+    opacity 0.7s var(--ease-cinematic),
+    transform 0.7s var(--ease-cinematic);
+}
+
+html[data-motion-ready="1"] .reveal-item[data-reveal="pending"] {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+}
+
+html[data-motion-ready="1"] .reveal-item[data-reveal="pending"][data-variant="image-reveal"] {
+  opacity: 0;
+  transform: scale(1.035);
+}
+
+html[data-motion-ready="1"] .reveal-item[data-reveal="pending"][data-variant="fade-in"] {
+  opacity: 0;
+  transform: translate3d(0, 0, 0);
+}
+
+html[data-motion-ready="1"] .reveal-item[data-reveal="visible"] {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+/* Gold underline draw animation inside revealed headers */
+.gold-line-draw {
+  transition:
+    transform 0.85s var(--ease-cinematic),
+    opacity 0.6s ease-out;
+}
+
+html[data-motion-ready="1"] .gold-line-draw[data-reveal="pending"] {
+  opacity: 0;
+  transform: scaleX(0);
+}
+
+html[data-motion-ready="1"] .gold-line-draw[data-reveal="visible"] {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+/* Refined Institutional Micro-Interactions */
+.btn-cinematic {
+  transition:
+    transform 0.22s var(--ease-cinematic),
+    background-color 0.22s ease,
+    border-color 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.btn-cinematic:hover:not(:disabled) {
+  transform: translate3d(0, -1.5px, 0);
+}
+
+.btn-cinematic:active:not(:disabled) {
+  transform: translate3d(0, 0, 0) scale(0.985);
+}
+
+.input-cinematic {
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.input-cinematic:focus {
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(21, 61, 50, 0.08);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(:disabled),
+select:not(:disabled),
+textarea:not(:disabled) {
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(:disabled):focus,
+select:not(:disabled):focus,
+textarea:not(:disabled):focus {
+  box-shadow: 0 0 0 3px rgba(21, 61, 50, 0.08);
+}
+
+/* Respect Prefers Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .reveal-item,
+  .gold-line-draw {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

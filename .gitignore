@@ -1,0 +1,27 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Next.js Build Output
+/.next/
+/out/
+
+# Environment & Secrets (NEVER commit secrets!)
+.env
+.env*.local
+!.env.example
+
+# Local SQLite Database & Private Document Uploads
+/data/
+/uploads/
+/backups/
+
+# OS & Debug Logs
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+*.tsbuildinfo
+.vercel
+
