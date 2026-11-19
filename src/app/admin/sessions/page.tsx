@@ -11,6 +11,7 @@ import {
   Video,
   Clock,
   User,
+  Users,
   MessageCircle,
   CheckCircle,
   AlertCircle,
@@ -34,6 +35,7 @@ export default function AdminSessionsPage() {
   const [daysSchedule, setDaysSchedule] = useState('الجمعة - السبت');
   const [status, setStatus] = useState<SessionStatus>('متاح');
   const [whatsappUrl, setWhatsappUrl] = useState('');
+  const [maxStudents, setMaxStudents] = useState<string>('');
 
   const fetchSessions = () => {
     setLoading(true);
@@ -62,6 +64,7 @@ export default function AdminSessionsPage() {
     setDaysSchedule('الجمعة - السبت');
     setStatus('متاح');
     setWhatsappUrl('');
+    setMaxStudents('15');
     setErrorMsg(null);
     setModalOpen(true);
   };
@@ -76,6 +79,7 @@ export default function AdminSessionsPage() {
     setDaysSchedule(s.days_schedule);
     setStatus(s.status);
     setWhatsappUrl(s.whatsapp_url || '');
+    setMaxStudents(s.max_students ? String(s.max_students) : '');
     setErrorMsg(null);
     setModalOpen(true);
   };
@@ -86,6 +90,7 @@ export default function AdminSessionsPage() {
     setSubmitting(true);
 
     try {
+      const parsedMaxStudents = maxStudents.trim() !== '' ? parseInt(maxStudents.trim(), 10) : null;
       const payload = {
         name,
         teacher_name: teacherName,
@@ -95,6 +100,7 @@ export default function AdminSessionsPage() {
         days_schedule: daysSchedule,
         status,
         whatsapp_url: whatsappUrl,
+        max_students: Number.isFinite(parsedMaxStudents) ? parsedMaxStudents : null,
       };
 
       let res;
@@ -194,15 +200,22 @@ export default function AdminSessionsPage() {
                     <Video className="w-3 h-3 text-forest-600" />
                     <span>{s.platform}</span>
                   </span>
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                      s.status === 'متاح'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-rose-50 text-rose-700 border border-rose-200'
-                    }`}
-                  >
-                    {s.status === 'متاح' ? 'متاح التسجيل' : 'غير متاح'}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {s.max_students && (s.registered_students_count ?? 0) >= s.max_students && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                        مكتملة
+                      </span>
+                    )}
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                        s.status === 'متاح'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-rose-50 text-rose-700 border border-rose-200'
+                      }`}
+                    >
+                      {s.status === 'متاح' ? 'متاح التسجيل' : 'غير متاح'}
+                    </span>
+                  </div>
                 </div>
 
                 <h3 className="font-bold text-forest-800 text-base mb-1">{s.name}</h3>
@@ -212,7 +225,7 @@ export default function AdminSessionsPage() {
                   <span>المعلمة: <strong>{s.teacher_name}</strong></span>
                 </div>
 
-                <div className="space-y-2 text-xs text-charcoal-600 border-t border-forest-50 pt-3">
+                <div className="space-y-2.5 text-xs text-charcoal-600 border-t border-forest-50 pt-3">
                   <div className="flex items-center justify-between">
                     <span className="text-charcoal-400">الموعد:</span>
                     <span className="font-semibold">{s.time_slot}</span>
@@ -226,6 +239,38 @@ export default function AdminSessionsPage() {
                     <span className="font-mono text-[11px] text-forest-700 truncate max-w-[150px]">
                       {s.whatsapp_url ? 'مُعد ✓' : 'غير محدد'}
                     </span>
+                  </div>
+                  <div className="pt-1.5 border-t border-forest-50/60">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="flex items-center gap-1 text-charcoal-400">
+                        <Users className="w-3.5 h-3.5 text-forest-600" />
+                        <span>الطالبات المسجلات:</span>
+                      </span>
+                      <span className="font-bold text-forest-800">
+                        {s.registered_students_count ?? 0}
+                        {s.max_students ? (
+                          <span className="text-charcoal-500 font-normal"> / {s.max_students} طالبة</span>
+                        ) : (
+                          <span className="text-charcoal-400 font-normal text-[11px]"> (سعة مفتوحة)</span>
+                        )}
+                      </span>
+                    </div>
+                    {s.max_students && (
+                      <div className="w-full bg-forest-50 rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            (s.registered_students_count ?? 0) >= s.max_students
+                              ? 'bg-rose-500'
+                              : (s.registered_students_count ?? 0) / s.max_students >= 0.8
+                              ? 'bg-amber-500'
+                              : 'bg-emerald-600'
+                          }`}
+                          style={{
+                            width: `${Math.min(100, Math.round(((s.registered_students_count ?? 0) / s.max_students) * 100))}%`,
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -353,6 +398,27 @@ export default function AdminSessionsPage() {
                     className="w-full px-3.5 py-2.5 rounded-xl border border-charcoal-300 focus:border-forest-600 focus:ring-1 focus:ring-forest-600 text-xs outline-none bg-ivory-50/40"
                   />
                 </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-bold text-charcoal-700">
+                    الحد الأقصى لعدد الطالبات (الطاقة الاستيعابية)
+                  </label>
+                  <span className="text-[10px] text-charcoal-400">اختياري</span>
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  max="500"
+                  value={maxStudents}
+                  onChange={(e) => setMaxStudents(e.target.value)}
+                  placeholder="مثال: 15 (أو اتركيه فارغاً إذا كان عدد الطالبات غير محدود)"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-charcoal-300 focus:border-forest-600 focus:ring-1 focus:ring-forest-600 text-xs outline-none bg-ivory-50/40"
+                />
+                <span className="text-[10px] text-charcoal-500 mt-1 block">
+                  عند تسجيل هذا العدد من الطالبات، ستصبح الحلقة مكتملة تلقائياً ولن تسمح بتسجيل طالبات إضافيات.
+                </span>
               </div>
 
               <div>

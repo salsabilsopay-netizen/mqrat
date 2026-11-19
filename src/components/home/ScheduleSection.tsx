@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Calendar, Clock, Video, User, AlertCircle, ArrowLeft, Filter, CheckSquare, BookOpen } from 'lucide-react';
+import { Calendar, Clock, Video, User, Users, AlertCircle, ArrowLeft, Filter, CheckSquare, BookOpen } from 'lucide-react';
 import { QuranSession } from '@/types';
 import { Reveal, GoldLineDraw } from '@/components/motion/MotionPrimitives';
 
@@ -26,7 +26,8 @@ export default function ScheduleSection() {
 
   const filteredSessions = sessions.filter((s) => {
     if (platformFilter !== 'all' && s.platform !== platformFilter) return false;
-    if (onlyAvailable && s.status !== 'متاح') return false;
+    const isFull = typeof s.max_students === 'number' && s.max_students > 0 && (s.registered_students_count ?? 0) >= s.max_students;
+    if (onlyAvailable && (s.status !== 'متاح' || isFull)) return false;
     return true;
   });
 
@@ -177,7 +178,10 @@ export default function ScheduleSection() {
             {/* Sessions Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {filteredSessions.map((session, idx) => {
-                const isAvailable = session.status === 'متاح';
+                const isFull = typeof session.max_students === 'number' &&
+                  session.max_students > 0 &&
+                  (session.registered_students_count ?? 0) >= session.max_students;
+                const isAvailable = session.status === 'متاح' && !isFull;
                 return (
                   <Reveal key={session.id} delay={Math.min(idx, 5) * 75} className="h-full">
                     <div
@@ -224,6 +228,20 @@ export default function ScheduleSection() {
                             <span className="font-semibold text-charcoal-800">{session.days_schedule}</span>
                           </div>
 
+                          {typeof session.max_students === 'number' && session.max_students > 0 && (
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-1 text-charcoal-500">
+                                <Users className="w-3 h-3 text-gold-600" />
+                                <span>المقاعد الشاغرة:</span>
+                              </span>
+                              <span className={`font-semibold ${isFull ? 'text-rose-600' : 'text-forest-700'}`}>
+                                {isFull
+                                  ? 'اكتملت المقاعد'
+                                  : `متبقي ${session.max_students - (session.registered_students_count ?? 0)} من ${session.max_students}`}
+                              </span>
+                            </div>
+                          )}
+
                           <div className="flex items-center justify-between">
                             <span className="text-charcoal-500">اسم المقرأة:</span>
                             <span className="font-medium text-forest-700">مقرأة الهدى</span>
@@ -236,10 +254,12 @@ export default function ScheduleSection() {
                           className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
                             isAvailable
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : isFull
+                              ? 'bg-amber-50 text-amber-800 border border-amber-200'
                               : 'bg-rose-50 text-rose-700 border border-rose-200'
                           }`}
                         >
-                          {isAvailable ? 'متاح التسجيل' : 'غير متاح'}
+                          {isAvailable ? 'متاح التسجيل' : isFull ? 'مكتملة العدد' : 'غير متاح'}
                         </span>
 
                         {isAvailable ? (
@@ -250,6 +270,13 @@ export default function ScheduleSection() {
                             <span>التسجيل في الحلقة</span>
                             <ArrowLeft className="w-3 h-3 text-gold-300 transition-transform duration-200 group-hover/btn:-translate-x-1" />
                           </Link>
+                        ) : isFull ? (
+                          <button
+                            disabled
+                            className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 font-medium text-xs cursor-not-allowed"
+                          >
+                            اكتمل عدد الطالبات
+                          </button>
                         ) : (
                           <button
                             disabled

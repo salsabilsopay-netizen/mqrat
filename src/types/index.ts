@@ -12,6 +12,8 @@ export interface QuranSession {
   days_schedule: string;
   status: SessionStatus;
   whatsapp_url?: string;
+  max_students?: number | null;
+  registered_students_count?: number;
   created_at: string;
 }
 

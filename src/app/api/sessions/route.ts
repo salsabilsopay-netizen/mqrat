@@ -49,6 +49,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'المنصة المعتمدة غير صالحة' }, { status: 400 });
     }
 
+    const parsedMaxStudents = body.max_students !== undefined && body.max_students !== null && String(body.max_students).trim() !== ''
+      ? Math.max(1, parseInt(String(body.max_students), 10))
+      : null;
+
     const newSession = await createSessionRecord({
       name: String(body.name).trim(),
       teacher_name: String(body.teacher_name).trim(),
@@ -58,6 +62,7 @@ export async function POST(request: NextRequest) {
       days_schedule: String(body.days_schedule).trim(),
       status: body.status === 'غير متاح' ? 'غير متاح' : 'متاح',
       whatsapp_url: typeof body.whatsapp_url === 'string' ? body.whatsapp_url.trim() : '',
+      max_students: Number.isFinite(parsedMaxStudents) ? parsedMaxStudents : null,
     });
 
     await recordAuditLog(admin.username, 'إنشاء حلقة جديدة', 'session', newSession.id, `إنشاء ${newSession.name}`);
@@ -85,7 +90,18 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'معرف الحلقة مطلوب' }, { status: 400 });
     }
 
-    const updated = await updateSessionRecord(body.id, body);
+    const updates = { ...body };
+    delete updates.id;
+    if (updates.max_students !== undefined) {
+      if (updates.max_students === null || String(updates.max_students).trim() === '') {
+        updates.max_students = null;
+      } else {
+        const parsed = parseInt(String(updates.max_students), 10);
+        updates.max_students = Number.isFinite(parsed) ? Math.max(1, parsed) : null;
+      }
+    }
+
+    const updated = await updateSessionRecord(body.id, updates);
     if (!updated) {
       return NextResponse.json({ success: false, error: 'الحلقة غير موجودة' }, { status: 404 });
     }

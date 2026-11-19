@@ -69,8 +69,12 @@ function StudentRegisterContent() {
       setErrorMessage('يرجى اختيار الحلقة المراد التسجيل بها');
       return;
     }
-    if (selectedSession.status !== 'متاح') {
-      setErrorMessage('عذراً، هذه الحلقة غير متاحة للتسجيل حالياً');
+    const isSelectedFull = typeof selectedSession.max_students === 'number' &&
+      selectedSession.max_students > 0 &&
+      (selectedSession.registered_students_count ?? 0) >= selectedSession.max_students;
+
+    if (selectedSession.status !== 'متاح' || isSelectedFull) {
+      setErrorMessage(isSelectedFull ? 'عذراً، هذه الحلقة اكتملت طاقتها الاستيعابية ولا تقبل تسجيلات جديدة' : 'عذراً، هذه الحلقة غير متاحة للتسجيل حالياً');
       return;
     }
     if (!fullName.trim() || !phone.trim() || !idNumber.trim() || !nationality.trim() || !residenceCountry.trim() || !residenceCity.trim() || !birthDate) {
@@ -220,11 +224,21 @@ function StudentRegisterContent() {
                     }}
                     className="w-full px-4 py-3 rounded-xl border border-charcoal-300 focus:border-forest-600 focus:ring-1 focus:ring-forest-600 text-sm outline-none bg-white font-medium"
                   >
-                    {sessions.map((s) => (
-                      <option key={s.id} value={s.id} disabled={s.status !== 'متاح'}>
-                        {s.name} — المعلمة: {s.teacher_name} ({s.time_slot} | {s.platform}) {s.status !== 'متاح' ? '[غير متاح]' : ''}
-                      </option>
-                    ))}
+                    {sessions.map((s) => {
+                      const isFull = typeof s.max_students === 'number' && s.max_students > 0 && (s.registered_students_count ?? 0) >= s.max_students;
+                      const isUnavailable = s.status !== 'متاح' || isFull;
+                      const seatInfo = typeof s.max_students === 'number' && s.max_students > 0
+                        ? isFull
+                          ? '[مكتملة العدد]'
+                          : `[المتبقي: ${s.max_students - (s.registered_students_count ?? 0)} مقعد]`
+                        : '';
+
+                      return (
+                        <option key={s.id} value={s.id} disabled={isUnavailable}>
+                          {s.name} — المعلمة: {s.teacher_name} ({s.time_slot} | {s.platform}) {s.status !== 'متاح' ? '[غير متاح]' : seatInfo}
+                        </option>
+                      );
+                    })}
                   </select>
 
                   {selectedSession && (
@@ -233,6 +247,14 @@ function StudentRegisterContent() {
                       <span><strong>الموعد:</strong> {selectedSession.time_slot}</span>
                       <span><strong>المنصة:</strong> {selectedSession.platform}</span>
                       <span><strong>الأيام:</strong> {selectedSession.days_schedule}</span>
+                      {typeof selectedSession.max_students === 'number' && selectedSession.max_students > 0 && (
+                        <span>
+                          <strong>المقاعد الشاغرة:</strong>{' '}
+                          <span className="font-semibold text-forest-700">
+                            {Math.max(0, selectedSession.max_students - (selectedSession.registered_students_count ?? 0))} من أصل {selectedSession.max_students}
+                          </span>
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>

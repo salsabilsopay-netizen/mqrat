@@ -50,6 +50,7 @@ function initSchema(db: DatabaseSync) {
       days_schedule TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'متاح',
       whatsapp_url TEXT,
+      max_students INTEGER DEFAULT NULL,
       created_at TEXT NOT NULL
     );
 
@@ -162,6 +163,13 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires ON admin_sessions(expires_at);
   `);
 
+  // Migrate existing sessions table to have max_students column if missing
+  try {
+    db.exec('ALTER TABLE sessions ADD COLUMN max_students INTEGER DEFAULT NULL;');
+  } catch {
+    // Column already exists
+  }
+
   // Transparently migrate any legacy plaintext admin passwords to salted scrypt hashes
   const admins = db.prepare('SELECT id, password_hash FROM admin_users').all() as { id: string; password_hash: string }[];
   for (const admin of admins) {
@@ -187,22 +195,31 @@ function initSchema(db: DatabaseSync) {
 export function getPublicSessions(): QuranSession[] {
   const db = getDb();
   return db.prepare(`
-    SELECT id, name, teacher_name, platform, days_count, time_slot, days_schedule, status, created_at
-    FROM sessions
-    ORDER BY created_at ASC
+    SELECT s.id, s.name, s.teacher_name, s.platform, s.days_count, s.time_slot, s.days_schedule, s.status, s.max_students, s.created_at,
+      (SELECT COUNT(*) FROM student_applications sa WHERE sa.session_id = s.id AND sa.status IN ('pending', 'approved')) AS registered_students_count
+    FROM sessions s
+    ORDER BY s.created_at ASC
   `).all() as unknown as QuranSession[];
 }
 
 export function getAllSessions(): QuranSession[] {
   const db = getDb();
   return db.prepare(`
-    SELECT * FROM sessions ORDER BY created_at ASC
+    SELECT s.*,
+      (SELECT COUNT(*) FROM student_applications sa WHERE sa.session_id = s.id AND sa.status IN ('pending', 'approved')) AS registered_students_count
+    FROM sessions s
+    ORDER BY s.created_at ASC
   `).all() as unknown as QuranSession[];
 }
 
 export function getSessionById(id: string): QuranSession | null {
   const db = getDb();
-  const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(id);
+  const session = db.prepare(`
+    SELECT s.*,
+      (SELECT COUNT(*) FROM student_applications sa WHERE sa.session_id = s.id AND sa.status IN ('pending', 'approved')) AS registered_students_count
+    FROM sessions s
+    WHERE s.id = ?
+  `).get(id);
   return (session as unknown as QuranSession) || null;
 }
 
@@ -211,9 +228,21 @@ export function createSession(session: Omit<QuranSession, 'id' | 'created_at'>):
   const id = generateSafeId('sess');
   const now = new Date().toISOString();
   db.prepare(`
-    INSERT INTO sessions (id, name, teacher_name, platform, days_count, time_slot, days_schedule, status, whatsapp_url, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, session.name, session.teacher_name, session.platform, session.days_count, session.time_slot, session.days_schedule, session.status, session.whatsapp_url || '', now);
+    INSERT INTO sessions (id, name, teacher_name, platform, days_count, time_slot, days_schedule, status, whatsapp_url, max_students, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    session.name,
+    session.teacher_name,
+    session.platform,
+    session.days_count,
+    session.time_slot,
+    session.days_schedule,
+    session.status,
+    session.whatsapp_url || '',
+    session.max_students ?? null,
+    now
+  );
 
   return { id, ...session, created_at: now };
 }
@@ -226,9 +255,20 @@ export function updateSession(id: string, updates: Partial<QuranSession>): boole
   const merged = { ...existing, ...updates };
   db.prepare(`
     UPDATE sessions
-    SET name = ?, teacher_name = ?, platform = ?, days_count = ?, time_slot = ?, days_schedule = ?, status = ?, whatsapp_url = ?
+    SET name = ?, teacher_name = ?, platform = ?, days_count = ?, time_slot = ?, days_schedule = ?, status = ?, whatsapp_url = ?, max_students = ?
     WHERE id = ?
-  `).run(merged.name, merged.teacher_name, merged.platform, merged.days_count, merged.time_slot, merged.days_schedule, merged.status, merged.whatsapp_url || '', id);
+  `).run(
+    merged.name,
+    merged.teacher_name,
+    merged.platform,
+    merged.days_count,
+    merged.time_slot,
+    merged.days_schedule,
+    merged.status,
+    merged.whatsapp_url || '',
+    merged.max_students ?? null,
+    id
+  );
 
   return true;
 }
@@ -265,6 +305,18 @@ export function createStudentApplication(data: {
   }
   if (session.status !== 'متاح') {
     throw new Error('التسجيل في هذه الحلقة غير متاح حالياً');
+  }
+
+  // Capacity check
+  if (session.max_students && session.max_students > 0) {
+    const countRow = db.prepare(`
+      SELECT COUNT(*) as cnt FROM student_applications
+      WHERE session_id = ? AND status IN ('pending', 'approved')
+    `).get(data.session_id) as { cnt: number };
+
+    if (countRow && countRow.cnt >= session.max_students) {
+      throw new Error(`عذراً، اكتمل العدد المسموح به في هذه الحلقة (${session.max_students} طالبة)`);
+    }
   }
 
   db.prepare(`

@@ -31,19 +31,51 @@ function getLocalUploadDir(): string {
 // 1. QURAN SESSIONS
 // ==============================================================================
 
+function extractRegisteredCount(row: Record<string, unknown>): number {
+  const rel = row.student_applications as { count?: number }[] | { count?: number } | null;
+  if (Array.isArray(rel) && rel.length > 0 && typeof rel[0]?.count === 'number') {
+    return rel[0].count;
+  }
+  if (rel && !Array.isArray(rel) && typeof rel.count === 'number') {
+    return rel.count;
+  }
+  return 0;
+}
+
 export async function fetchPublicSessions(): Promise<QuranSession[]> {
   if (getDataSource() === 'sqlite') {
     return sqliteDb.getPublicSessions();
   }
 
   const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase
+  let rows: Record<string, unknown>[] = [];
+
+  const firstAttempt = await supabase
     .from('sessions')
-    .select('id, name, teacher_name, platform, days_count, time_slot, days_schedule, status, created_at')
+    .select('id, name, teacher_name, platform, days_count, time_slot, days_schedule, status, max_students, created_at, student_applications(count)')
     .order('created_at', { ascending: true });
 
-  if (error) throw new Error(error.message);
-  return (data || []) as QuranSession[];
+  if (firstAttempt.error && (firstAttempt.error.code === '42703' || firstAttempt.error.message.includes('max_students'))) {
+    const fallback = await supabase
+      .from('sessions')
+      .select('id, name, teacher_name, platform, days_count, time_slot, days_schedule, status, created_at, student_applications(count)')
+      .order('created_at', { ascending: true });
+
+    if (fallback.error) throw new Error(fallback.error.message);
+    rows = (fallback.data || []) as unknown as Record<string, unknown>[];
+  } else if (firstAttempt.error) {
+    throw new Error(firstAttempt.error.message);
+  } else {
+    rows = (firstAttempt.data || []) as unknown as Record<string, unknown>[];
+  }
+
+  return rows.map((row) => {
+    const { student_applications: _omit, ...rest } = row;
+    return {
+      ...(rest as unknown as QuranSession),
+      registered_students_count: extractRegisteredCount(row),
+    };
+  });
 }
 
 export async function fetchAllSessionsAdmin(): Promise<QuranSession[]> {
@@ -52,23 +84,38 @@ export async function fetchAllSessionsAdmin(): Promise<QuranSession[]> {
   }
 
   const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase
+  let rows: Record<string, unknown>[] = [];
+
+  const firstAttempt = await supabase
     .from('sessions')
-    .select('*, session_links(whatsapp_url)')
+    .select('*, session_links(whatsapp_url), student_applications(count)')
     .order('created_at', { ascending: true });
 
-  if (error) throw new Error(error.message);
+  if (firstAttempt.error && (firstAttempt.error.code === '42703' || firstAttempt.error.message.includes('max_students'))) {
+    const fallback = await supabase
+      .from('sessions')
+      .select('id, name, teacher_name, platform, days_count, time_slot, days_schedule, status, created_at, session_links(whatsapp_url), student_applications(count)')
+      .order('created_at', { ascending: true });
 
-  return (data || []).map((row: Record<string, unknown>) => {
+    if (fallback.error) throw new Error(fallback.error.message);
+    rows = (fallback.data || []) as unknown as Record<string, unknown>[];
+  } else if (firstAttempt.error) {
+    throw new Error(firstAttempt.error.message);
+  } else {
+    rows = (firstAttempt.data || []) as unknown as Record<string, unknown>[];
+  }
+
+  return rows.map((row) => {
     const linksRel = row.session_links as { whatsapp_url?: string } | { whatsapp_url?: string }[] | null;
     const whatsappUrl = Array.isArray(linksRel)
       ? linksRel[0]?.whatsapp_url || ''
       : linksRel?.whatsapp_url || '';
 
-    const { session_links: _omit, ...rest } = row;
+    const { session_links: _omitLinks, student_applications: _omitStudents, ...rest } = row;
     return {
       ...(rest as unknown as QuranSession),
       whatsapp_url: whatsappUrl,
+      registered_students_count: extractRegisteredCount(row),
     };
   });
 }
@@ -83,20 +130,37 @@ export async function createSessionRecord(
   const supabase = createSupabaseServiceClient();
   const { whatsapp_url, ...publicFields } = session;
 
-  const { data: created, error } = await supabase
+  let created: Record<string, unknown> | null = null;
+  const firstRes = await supabase
     .from('sessions')
     .insert(publicFields)
-    .select('id, name, teacher_name, platform, days_count, time_slot, days_schedule, status, created_at')
+    .select('id, name, teacher_name, platform, days_count, time_slot, days_schedule, status, max_students, created_at')
     .single();
 
-  if (error || !created) {
-    throw new Error(error?.message || 'فشل إنشاء الحلقة في Supabase');
+  if (firstRes.error && (firstRes.error.code === '42703' || firstRes.error.message.includes('max_students'))) {
+    const { max_students: _omitMax, ...fieldsWithoutMax } = publicFields;
+    const fallbackRes = await supabase
+      .from('sessions')
+      .insert(fieldsWithoutMax)
+      .select('id, name, teacher_name, platform, days_count, time_slot, days_schedule, status, created_at')
+      .single();
+
+    if (fallbackRes.error || !fallbackRes.data) {
+      throw new Error(fallbackRes.error?.message || 'فشل إنشاء الحلقة في Supabase');
+    }
+    created = fallbackRes.data as unknown as Record<string, unknown>;
+  } else if (firstRes.error || !firstRes.data) {
+    throw new Error(firstRes.error?.message || 'فشل إنشاء الحلقة في Supabase');
+  } else {
+    created = firstRes.data as unknown as Record<string, unknown>;
   }
+
+  const createdId = String(created.id);
 
   if (whatsapp_url) {
     const { error: linkError } = await supabase
       .from('session_links')
-      .upsert({ session_id: created.id, whatsapp_url });
+      .upsert({ session_id: createdId, whatsapp_url });
 
     if (linkError) {
       throw new Error(linkError.message);
@@ -104,7 +168,7 @@ export async function createSessionRecord(
   }
 
   return {
-    ...(created as QuranSession),
+    ...(created as unknown as QuranSession),
     whatsapp_url: whatsapp_url || '',
   };
 }
@@ -118,18 +182,31 @@ export async function updateSessionRecord(
   }
 
   const supabase = createSupabaseServiceClient();
-  const { whatsapp_url, id: _omitId, created_at: _omitCreated, ...publicUpdates } = updates;
+  const { whatsapp_url, id: _omitId, created_at: _omitCreated, registered_students_count: _omitCount, ...publicUpdates } = updates;
 
   if (Object.keys(publicUpdates).length > 0) {
-    const { data, error } = await supabase
+    const firstRes = await supabase
       .from('sessions')
       .update(publicUpdates)
       .eq('id', id)
       .select('id')
       .maybeSingle();
 
-    if (error) throw new Error(error.message);
-    if (!data) return false;
+    if (firstRes.error && (firstRes.error.code === '42703' || firstRes.error.message.includes('max_students'))) {
+      const { max_students: _omitMax, ...updatesWithoutMax } = publicUpdates;
+      const fallbackRes = await supabase
+        .from('sessions')
+        .update(updatesWithoutMax)
+        .eq('id', id)
+        .select('id')
+        .maybeSingle();
+
+      if (fallbackRes.error) throw new Error(fallbackRes.error.message);
+      if (!fallbackRes.data) return false;
+    } else {
+      if (firstRes.error) throw new Error(firstRes.error.message);
+      if (!firstRes.data) return false;
+    }
   }
 
   if (typeof whatsapp_url === 'string') {
@@ -185,6 +262,44 @@ export async function submitStudentRegistration(data: {
   }
 
   const supabase = createSupabaseServiceClient();
+
+  // Validate session existence, status, and max capacity
+  const { data: sessRow } = await supabase
+    .from('sessions')
+    .select('id, status')
+    .eq('id', data.session_id)
+    .maybeSingle();
+
+  if (sessRow && sessRow.status !== 'متاح') {
+    throw new Error('التسجيل في هذه الحلقة غير متاح حالياً');
+  }
+
+  // Check if max_students is set and count active student applications
+  try {
+    const { data: sessCap } = await supabase
+      .from('sessions')
+      .select('max_students')
+      .eq('id', data.session_id)
+      .maybeSingle();
+
+    if (sessCap && typeof sessCap.max_students === 'number' && sessCap.max_students > 0) {
+      const { count } = await supabase
+        .from('student_applications')
+        .select('id', { count: 'exact', head: true })
+        .eq('session_id', data.session_id)
+        .in('status', ['pending', 'approved']);
+
+      if (typeof count === 'number' && count >= sessCap.max_students) {
+        throw new Error(`عذراً، اكتمل العدد المسموح به في هذه الحلقة (${sessCap.max_students} طالبة)`);
+      }
+    }
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message.includes('اكتمل العدد')) {
+      throw err;
+    }
+    // If column max_students doesn't exist yet in Supabase, proceed safely
+  }
+
   const { data: rpcResult, error } = await supabase.rpc('register_student_and_get_link', {
     p_session_id: data.session_id,
     p_full_name: data.full_name,

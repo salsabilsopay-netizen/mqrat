@@ -104,8 +104,12 @@ CREATE TABLE IF NOT EXISTS public.sessions (
   time_slot TEXT NOT NULL,
   days_schedule TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'متاح' CHECK (status IN ('متاح', 'غير متاح')),
+  max_students INTEGER DEFAULT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Idempotent column addition for existing databases
+ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS max_students INTEGER DEFAULT NULL;
 
 ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
 
@@ -349,6 +353,8 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_session_status TEXT;
+  v_max_students INTEGER;
+  v_registered_count INTEGER;
   v_app_id TEXT;
   v_whatsapp_url TEXT;
 BEGIN
@@ -363,7 +369,7 @@ BEGIN
     RAISE EXCEPTION 'البيانات المدخلة غير مكتملة أو غير صالحة';
   END IF;
 
-  SELECT status INTO v_session_status
+  SELECT status, max_students INTO v_session_status, v_max_students
   FROM public.sessions
   WHERE id = p_session_id;
 
@@ -373,6 +379,17 @@ BEGIN
 
   IF v_session_status <> 'متاح' THEN
     RAISE EXCEPTION 'التسجيل في هذه الحلقة غير متاح حالياً';
+  END IF;
+
+  -- Capacity check if max_students is set
+  IF v_max_students IS NOT NULL AND v_max_students > 0 THEN
+    SELECT count(*) INTO v_registered_count
+    FROM public.student_applications
+    WHERE session_id = p_session_id AND status IN ('pending', 'approved');
+
+    IF v_registered_count >= v_max_students THEN
+      RAISE EXCEPTION 'عذراً، اكتمل العدد المسموح به في هذه الحلقة (% طالبة)', v_max_students;
+    END IF;
   END IF;
 
   v_app_id := 'stu-' || substr(replace(gen_random_uuid()::text, '-', ''), 1, 10);
