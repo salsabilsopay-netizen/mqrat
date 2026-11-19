@@ -1,63 +1,8 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import { Form261Data, escapeHtml } from './mapper';
-
-interface Form261Assets {
-  ministryEmblemB64: string;
-  vision2030B64: string;
-  amiriArabicRegularB64: string;
-  amiriArabicBoldB64: string;
-  amiriLatinRegularB64: string;
-  amiriLatinBoldB64: string;
-}
-
-let cachedAssets: Form261Assets | null = null;
-
-function readAssetBase64(relativeSegments: string[]): string {
-  const fullPath = path.join(process.cwd(), ...relativeSegments);
-  return fs.readFileSync(fullPath).toString('base64');
-}
+import { FORM_261_ASSETS, Form261Assets } from './embedded-assets';
 
 function getAssets(): Form261Assets {
-  if (!cachedAssets) {
-    cachedAssets = {
-      ministryEmblemB64: readAssetBase64(['src', 'lib', 'form261', 'assets', 'ministry-emblem.png']),
-      vision2030B64: readAssetBase64(['src', 'lib', 'form261', 'assets', 'vision-2030.png']),
-      amiriArabicRegularB64: readAssetBase64([
-        'src',
-        'lib',
-        'form261',
-        'assets',
-        'fonts',
-        'amiri-arabic-400-normal.woff2',
-      ]),
-      amiriArabicBoldB64: readAssetBase64([
-        'src',
-        'lib',
-        'form261',
-        'assets',
-        'fonts',
-        'amiri-arabic-700-normal.woff2',
-      ]),
-      amiriLatinRegularB64: readAssetBase64([
-        'src',
-        'lib',
-        'form261',
-        'assets',
-        'fonts',
-        'amiri-latin-400-normal.woff2',
-      ]),
-      amiriLatinBoldB64: readAssetBase64([
-        'src',
-        'lib',
-        'form261',
-        'assets',
-        'fonts',
-        'amiri-latin-700-normal.woff2',
-      ]),
-    };
-  }
-  return cachedAssets;
+  return FORM_261_ASSETS;
 }
 
 function renderCellText(value: string, ltr: boolean = false): string {
